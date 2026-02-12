@@ -50,13 +50,17 @@ class Net1(nn.Module):
     def __init__(self):
         super(Net1, self).__init__()
         c = capacity
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=c, kernel_size=4, stride=2, padding=1) # 256 -> 128 with conv stride 2
-        self.conv2 = nn.Conv2d(in_channels=c, out_channels=c * 2, kernel_size=4, stride=2, padding=1) # 128 -> 64 with conc stride 2
-        self.fc1 = torch.nn.Linear(c * 2 * 64 * 64, x_fdim) 
+        self.conv1 = nn.Conv2d(in_channels=1,   out_channels=c, kernel_size=4, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=c,   out_channels=c * 2, kernel_size=4, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=c*2, out_channels=c * 4, kernel_size=4, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=c*4, out_channels=c * 8, kernel_size=4, stride=2, padding=1)
+        self.fc1 = torch.nn.Linear(c * 8 * 16 * 16, x_fdim)
 
     def forward(self, x):
         x = F.leaky_relu(self.conv1(x), negative_slope=0.2)
         x = F.leaky_relu(self.conv2(x), negative_slope=0.2)
+        x = F.leaky_relu(self.conv3(x), negative_slope=0.2)
+        x = F.leaky_relu(self.conv4(x), negative_slope=0.2)
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         return x
@@ -78,13 +82,18 @@ class Net2(nn.Module):
 class Net3(nn.Module):
     def __init__(self):
         super(Net3, self).__init__()
-        self.fc1 = nn.Linear(in_features=x_fdim, out_features=capacity * 2 * 64 * 64)
-        self.deconv2 = nn.ConvTranspose2d(in_channels=capacity * 2, out_channels=capacity, kernel_size=4, stride=2, padding=1)
-        self.deconv1 = nn.ConvTranspose2d(in_channels=capacity, out_channels=1, kernel_size=4, stride=2, padding=1)
+        c = capacityc = capacity
+        self.fc1 = nn.Linear(in_features=x_fdim, out_features=c * 8 * 16 * 16)
+        self.deconv4 = nn.ConvTranspose2d(in_channels=c*8, out_channels=c * 4, kernel_size=4, stride=2, padding=1)
+        self.deconv3 = nn.ConvTranspose2d(in_channels=c*4, out_channels=c * 2, kernel_size=4, stride=2, padding=1)
+        self.deconv2 = nn.ConvTranspose2d(in_channels=c*2, out_channels=c, kernel_size=4, stride=2, padding=1)
+        self.deconv1 = nn.ConvTranspose2d(in_channels=c, out_channels=1, kernel_size=4, stride=2, padding=1)
 
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x), negative_slope=0.2)
-        x = x.view(x.size(0), capacity * 2, 64, 64)  # or use c instead of capacity
+        x = x.view(x.size(0), capacity * 8, 16, 16)
+        x = F.leaky_relu(self.deconv4(x), negative_slope=0.2)
+        x = F.leaky_relu(self.deconv3(x), negative_slope=0.2)
         x = F.leaky_relu(self.deconv2(x), negative_slope=0.2)
         x = torch.sigmoid(self.deconv1(x))
         return x
@@ -93,8 +102,8 @@ class Net3(nn.Module):
 class Net4(nn.Module):
     def __init__(self):
         super(Net4, self).__init__()
-        self.fc1 = torch.nn.Linear(y_fdim, 100)
-        self.fc2 = torch.nn.Linear(100, 40)
+        self.fc1 = torch.nn.Linear(y_fdim, 32)
+        self.fc2 = torch.nn.Linear(32, 40)
 
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x), negative_slope=0.2)
@@ -153,7 +162,7 @@ class MMCelebAHQ(Dataset):
 
         for i in range(args[0].N):
             image = self.transform(np.array(Image.open(dataset_source + 'image/' + str(i) + '.jpg').convert('RGB')).astype(np.double))
-            sketch = self.transform(np.array(Image.open(dataset_source + 'sketch/' + str(i) + '.jpg').convert('L')).astype(np.double))
+            sketch = self.transform(np.array(Image.open(dataset_source + 'sketch/' + str(i) + '.jpg').convert('1')).astype(np.double))
             label = np.array(open(dataset_source + 'label/' + str(i) + '.txt').read().split(',')).astype(np.double)
 
             label[label == -1] = 0
