@@ -15,16 +15,16 @@ import os.path
 
 # Load a Pre-trained model or saved model ====================
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--filename', type=str, default='pre_trained_models/MNIST_trained_RKM_f_bce', help='Enter Filename') 
+parser.add_argument('--filename', type=str, default='pre_trained_models/MNIST_trained_RKM_f_bce', help='Enter Filename')
 opt_gen = parser.parse_args()
 
-sd_mdl = torch.load('./pre_trained_models/MNIST_trained_RKM_f_bce.tar'.format(opt_gen.filename, map_location=lambda storage, loc: storage), weights_only=False, map_location=torch.device('cpu')) # Added weights_only='false' due to updated torch version and map_location=torch.device('cpu') due to MacOS
+sd_mdl = torch.load('{}.tar'.format(opt_gen.filename, map_location=lambda storage, loc: storage))
 
-net1 = sd_mdl['net1'].cpu() # Getting the 4 networks from the file into the CPU
+net1 = sd_mdl['net1'].cpu()
 net3 = sd_mdl['net3'].cpu()
 net2 = sd_mdl['net2'].cpu()
 net4 = sd_mdl['net4'].cpu()
-net1.load_state_dict(sd_mdl['net1_state_dict']) # Loading the weights
+net1.load_state_dict(sd_mdl['net1_state_dict'])
 net3.load_state_dict(sd_mdl['net3_state_dict'])
 net2.load_state_dict(sd_mdl['net2_state_dict'])
 net4.load_state_dict(sd_mdl['net4_state_dict'])

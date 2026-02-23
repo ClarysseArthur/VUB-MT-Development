@@ -10,8 +10,8 @@ from torchvision import datasets, transforms
 
 class MMCelebAHQ(Dataset):
     def __init__(self, *args, **kwargs):
-        self.im_transform = kwargs['im_transform']
-        self.sk_transform = kwargs['im_transform']
+        self.im_transform = kwargs['transform']
+        self.sk_transform = kwargs['transform']
 
         dataset_source = "../../Datasets/MMCelebAHQ/DATASET/"
 
@@ -19,7 +19,9 @@ class MMCelebAHQ(Dataset):
         self.sketches = []
         self.labels = []
 
-        for i in range(args[0].N):
+        print("info", args[0].start_iter, args[0].start_iter + args[0].N, 1)
+
+        for i in range(args[0].start_iter, args[0].start_iter + args[0].N, 1):
             image = self.im_transform(np.array(Image.open(dataset_source + 'image/' + str(i) + '.jpg').convert('RGB')).astype(np.double))
             sketch = self.sk_transform(np.array(Image.open(dataset_source + 'sketch/' + str(i) + '.jpg').convert('1')).astype(np.double))
             label = np.array(open(dataset_source + 'label/' + str(i) + '.txt').read().split(',')).astype(np.double)
@@ -30,8 +32,6 @@ class MMCelebAHQ(Dataset):
             self.images.append(image)
             self.sketches.append(sketch)
             self.labels.append(label) # Already multi-hot encoded
-
-        self.classes = ('_o_Clock_Shadow','Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bald','Bangs','Big_Lips','Big_Nose','Black_Hair','Blond_Hair','Blurry','Brown_Hair','Bushy_Eyebrows','Chubby','Double_Chin','Eyeglasses','Goatee','Gray_Hair','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes','No_Beard','Oval_Face','Pale_Skin','Pointy_Nose','Receding_Hairline','Rosy_Cheeks','Sideburns','Smiling ','Straight_Hair','Wavy_Hair','Wearing_Earrings','Wearing_Hat','Wearing_Lipstick','Wearing_Necklace','Wearing_Necktie','Young')
 
     def __getitem__(self, i):
         image = self.images[i]
@@ -44,28 +44,27 @@ class MMCelebAHQ(Dataset):
         return len(self.images)
 
 def get_mmcelebahq_dataloader(args):
-    im_transforms = transforms.Compose([
+    transform = transforms.Compose([
         transforms.ToTensor(), # Convert the PIL image to a tensor
         transforms.Lambda(lambda t: F.interpolate(t.unsqueeze(0), size=(128, 128), mode="bilinear", align_corners=False).squeeze(0)), # Convert the image from 256x256 -> 128x128
         transforms.Lambda(lambda t: t.double() / 255.0 if t.max() > 1 else t.double()) # Make the values real [0, 1]
     ])
 
-    sktransforms = transforms.Compose([
-        transforms.ToTensor(), # Convert the PIL image to a tensor
-        transforms.Lambda(lambda t: t.double() / 255.0 if t.max() > 1 else t.double()) # Make the values real [0, 1]
-    ])
-
-    train_data = MMCelebAHQ(args, im_transform=im_transforms, sk_transform=sktransforms)
+    train_data = MMCelebAHQ(args, transform=transform)
     train_loader = DataLoader(train_data, batch_size=args.mb_size, shuffle=args.shuffle, pin_memory=False, num_workers=0)
+
+    args.start_iter = args.N + 1
+    test_data = MMCelebAHQ(args, transform=transform)
+    test_loader = DataLoader(test_data, batch_size=args.mb_size, shuffle=False, pin_memory=False, num_workers=0)
+
     _, c, x, y = next(iter(train_loader))[0].size()
 
-    return train_loader, c * x * y, c
+    return train_loader, test_loader, c * x * y, c
 
 def mmcelebahq_final_compute(args, net1, net2, net3, kPCA, device=torch.device('cuda')):
     """ Function to compute embeddings of full dataset. """
-    print(args.N)
     args.shuffle = False
-    xt, _, _ = get_mmcelebahq_dataloader(args=args)  # loading data without shuffle
+    xt, _, _, _= get_mmcelebahq_dataloader(args=args)  # loading data without shuffle
 
     xtr = net1(torch.stack(xt.dataset.images)[:args.N, :, :, :].to(args.device))
     ytr = net2(torch.stack(xt.dataset.sketches)[:args.N, :, :, :].to(args.device))
