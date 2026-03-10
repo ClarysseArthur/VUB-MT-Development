@@ -1,6 +1,7 @@
 import torch
 
 import numpy as np
+import pandas as pd
 import torch.nn.functional as F
 
 
@@ -76,3 +77,15 @@ def mmcelebahq_final_compute(args, net1, net2, net3, kPCA, device=torch.device('
 
 def get_classes():
     return ('_o_Clock_Shadow','Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bald','Bangs','Big_Lips','Big_Nose','Black_Hair','Blond_Hair','Blurry','Brown_Hair','Bushy_Eyebrows','Chubby','Double_Chin','Eyeglasses','Goatee','Gray_Hair','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes','No_Beard','Oval_Face','Pale_Skin','Pointy_Nose','Receding_Hairline','Rosy_Cheeks','Sideburns','Smiling ','Straight_Hair','Wavy_Hair','Wearing_Earrings','Wearing_Hat','Wearing_Lipstick','Wearing_Necklace','Wearing_Necktie','Young')
+
+def get_labels_df():
+    import pandas as pd
+    classes = get_classes()
+    labels_df = pd.DataFrame(columns=classes)
+
+    for i in range(1, 40 + 1):
+        label = np.array(open("../../Datasets/MMCelebAHQ/DATASET/label/" + str(i) + '.txt').read().split(',')).astype(np.double)
+        label[label == -1] = 0
+        labels_df.loc[i] = label
+
+    return labels_df

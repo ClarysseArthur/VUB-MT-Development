@@ -72,16 +72,37 @@ class NetSentEn(nn.Module):
     Input:  (B, 4) one-hot float/int
     Output: (B, y_fdim)
     """
-    def __init__(self, hidden=32):
+    def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(4, hidden)
-        self.fc2 = nn.Linear(hidden, y_fdim)
+        self.fc1 = nn.Linear(4, 16)
+        self.fc2 = nn.Linear(16, 32)
 
     def forward(self, x):
         if x.dim() == 1:  # (4,)
             x = x.unsqueeze(0)
         if x.size(-1) != 4:
             raise ValueError(f"NetSentEn expected last dim=4, got {tuple(x.shape)}")
+
+        # x = x.float()
+        x = F.leaky_relu(self.fc1(x), 0.2)
+        x = self.fc2(x)
+        return x
+
+class NetLenEn(nn.Module):
+    """
+    Input:  (B, 15) one-hot float/int
+    Output: (B, y_fdim)
+    """
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(15, 32)
+        self.fc2 = nn.Linear(32, 64)
+
+    def forward(self, x):
+        if x.dim() == 1:  # (15,)
+            x = x.unsqueeze(0)
+        if x.size(-1) != 15:
+            raise ValueError(f"NetLentEn expected last dim=15, got {tuple(x.shape)}")
 
         # x = x.float()
         x = F.leaky_relu(self.fc1(x), 0.2)
@@ -112,10 +133,10 @@ class NetSentDe(nn.Module):
     Input:  (B, y_fdim)
     Output: (B, 4) logits
     """
-    def __init__(self, hidden=32):
+    def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(y_fdim, hidden)
-        self.fc2 = nn.Linear(hidden, 4)
+        self.fc1 = nn.Linear(32, 16)
+        self.fc2 = nn.Linear(16, 4)
 
     def forward(self, z):
         if z.dim() == 1:
@@ -124,4 +145,23 @@ class NetSentDe(nn.Module):
         # z = z.double()
         z = F.leaky_relu(self.fc1(z), 0.2)
         logits = self.fc2(z)       # (B, 4)
+        return logits              # use softmax + CE, or BCEWithLogitsLoss if multi-label
+
+class NetLenDe(nn.Module):
+    """
+    Input:  (B, y_fdim)
+    Output: (B, 15) logits
+    """
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(64, 32)
+        self.fc2 = nn.Linear(32, 15)
+
+    def forward(self, z):
+        if z.dim() == 1:
+            z = z.unsqueeze(0)
+
+        # z = z.double()
+        z = F.leaky_relu(self.fc1(z), 0.2)
+        logits = self.fc2(z)       # (B, 15)
         return logits              # use softmax + CE, or BCEWithLogitsLoss if multi-label
