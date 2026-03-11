@@ -13,18 +13,16 @@ def _drop_constant_dims(latents: np.ndarray) -> np.ndarray:
 
 def scalable_irs_score(gen_factors: np.ndarray, latents: np.ndarray, diff_quantile: float = 0.99):
     """
-    Core IRS computation adapted from disentanglement_lib/evaluation/metrics/irs.py.
+    Convenience for IRS computation. -> based on disentanglement_lib's implementation but adapted for your setup and made more efficient.
+
     Args:
-      gen_factors: (N,K) discrete factors (your 40 binary attributes work directly).
-      latents:     (N,L) latent codes.
-      diff_quantile: quantile of within-group deviations (paper uses 1.0; lib often uses 0.99).
+      C: (N,L) latent code matrix.
+      Z: (N,K) discrete generative factors.
+         Continuous factors should be discretized first.
+      diff_quantile: quantile used to approximate maximal deviations.
+
     Returns:
-      dict with:
-        - "IRS": avg_score
-        - "IRS_matrix": (L,K) robustness per (latent, factor)
-        - "parents": (L,) best factor per latent
-        - "disentanglement_scores": (L,) per-latent max over factors
-        - "max_deviations": (L,)
+      Dictionary containing the empirical IRS score and per-latent/per-factor scores.
     """
     gen_factors = np.asarray(gen_factors)
     latents = np.asarray(latents, dtype=float)
@@ -59,7 +57,7 @@ def scalable_irs_score(gen_factors: np.ndarray, latents: np.ndarray, diff_quanti
             cum_deviations[:, i] += q
         cum_deviations[:, i] /= max(len(uniq), 1)
 
-    normalized_deviations = cum_deviations / max_deviations[:, None]  # (L,K)
+    normalized_deviations = cum_deviations / max_deviations[:, None]  # (L,K) EMPIDA / max deviation per latent
     irs_matrix = 1.0 - normalized_deviations                          # higher is better
 
     disent_scores = irs_matrix.max(axis=1)     # per-latent best factor
