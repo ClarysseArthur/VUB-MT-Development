@@ -13,7 +13,6 @@ import shutil
 # Hyper-parameters =================
 N = 500  # Samples
 mb_size = 100  # Mini-batch size
-h_dim = 15  # No. of Principal components
 capacity = 32
 x_fdim1 = 64
 y_fdim = 100
