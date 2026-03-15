@@ -150,11 +150,3 @@ class NetLaDe(nn.Module):
         x = F.leaky_relu(self.fc1(x), negative_slope=0.2)
         x = torch.tanh(self.fc2(x))
         return x
-
-class FactorHead(nn.Module):
-    def __init__(self, h_dim: int, n_factors: int):
-        super().__init__()
-        self.linear = nn.Linear(h_dim, n_factors)
-
-    def forward(self, h):
-        return self.linear(h)   # logits
