@@ -23,22 +23,48 @@ class FastMNIST(datasets.MNIST):
 
 
 def get_mnist_dataloader(args, path_to_data='mnist'):
-    """MNIST dataloader with (28, 28) images."""
-
     all_transforms = transforms.Compose([transforms.ToTensor()])
+
     train_data = FastMNIST(path_to_data, train=True, download=True, transform=all_transforms)
-    train_loader = DataLoader(train_data, batch_size=args.mb_size, shuffle=args.shuffle, pin_memory=False,
-                              num_workers=0)
-    _, c, x, y = next(iter(train_loader))[0].size()
-    return train_loader, c * x * y, c
+    test_data = FastMNIST(path_to_data, train=False, download=True, transform=all_transforms)
+
+    train_loader = DataLoader(
+        train_data,
+        batch_size=args.mb_size,
+        shuffle=args.shuffle,
+        pin_memory=False,
+        num_workers=0
+    )
+
+    test_loader = DataLoader(
+        test_data,
+        batch_size=args.mb_size,
+        shuffle=False,
+        pin_memory=False,
+        num_workers=0
+    )
+
+    sample, _ = train_data[0]
+    c, x, y = sample.size()
+
+    return train_loader, test_loader, c * x * y, c
 
 
 def final_compute(args, net1, net2, kPCA, device=torch.device('cuda')):
     """ Function to compute embeddings of full dataset. """
     args.shuffle = False
-    xt, _, _ = get_mnist_dataloader(args=args)  # loading data without shuffle
+    xt, xte, _, _ = get_mnist_dataloader(args=args)  # loading data without shuffle
     xtr = net1(xt.dataset.train_data[:args.N, :, :, :].to(args.device))
     ytr = net2(xt.dataset.targets[:args.N, :].to(args.device))
 
     h, s = kPCA(xtr, ytr)
     return torch.mm(torch.t(xtr), h), torch.mm(torch.t(ytr), h), h, s
+
+def final_compute_1V(args, net1, kPCA, device=torch.device('cuda')):
+    """ Function to compute embeddings of full dataset. """
+    args.shuffle = False
+    xt, _, _, _ = get_mnist_dataloader(args=args)  # loading data without shuffle
+    xtr = net1(xt.dataset.train_data[:args.N, :, :, :].to(args.device))
+
+    h, s = kPCA(xtr)
+    return torch.mm(torch.t(xtr), h), h, s
