@@ -13,7 +13,7 @@ def _drop_constant_dims(latents: np.ndarray) -> np.ndarray:
 
 def scalable_irs_score(gen_factors: np.ndarray, latents: np.ndarray, diff_quantile: float = 0.99):
     """
-    Convenience for IRS computation. -> based on disentanglement_lib's implementation but adapted for your setup and made more efficient.
+    Convenience for IRS computation. -> based on disentanglement_lib's implementation
 
     Args:
       C: (N,L) latent code matrix.
@@ -45,16 +45,20 @@ def scalable_irs_score(gen_factors: np.ndarray, latents: np.ndarray, diff_quanti
 
     cum_deviations = np.zeros((L, K), dtype=float)
 
-    for i in range(K):
-        uniq = np.unique(gen_factors[:, i])
+    for i in range(K):                                                  # For each generative factor
+        uniq = np.unique(gen_factors[:, i])                             # unique values of g_i
+
         for val in uniq:
             match = (gen_factors[:, i] == val)
+
             if not np.any(match):
                 continue
-            e_loc = latents[match].mean(axis=0)                       # E[Z | g_i=val]
-            diffs = np.abs(latents[match] - e_loc)                   # |Z - E[Z|g]|
+
+            e_loc = latents[match].mean(axis=0)                         # E[Z | g_i=val]
+            diffs = np.abs(latents[match] - e_loc)                      # |Z - E[Z|g]|
             q = np.percentile(diffs, q=diff_quantile * 100.0, axis=0)
             cum_deviations[:, i] += q
+
         cum_deviations[:, i] /= max(len(uniq), 1)
 
     normalized_deviations = cum_deviations / max_deviations[:, None]  # (L,K) EMPIDA / max deviation per latent
