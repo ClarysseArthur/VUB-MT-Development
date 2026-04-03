@@ -54,9 +54,9 @@ def get_mmcelebahq_dataloader(args):
     train_data = MMCelebAHQ(args, transform=transform)
     train_loader = DataLoader(train_data, batch_size=args.mb_size, shuffle=args.shuffle, pin_memory=False, num_workers=0)
 
-    args.start_iter = args.N + 1
+    args.start_iter = args.N + 1 # Skip the samples from the training set
     test_data = MMCelebAHQ(args, transform=transform)
-    test_loader = DataLoader(test_data, batch_size=args.mb_size, shuffle=False, pin_memory=False, num_workers=0)
+    test_loader = DataLoader(test_data, batch_size=args.mb_size, shuffle=False, pin_memory=False, num_workers=0, drop_last=True)
 
     _, c, x, y = next(iter(train_loader))[0].size()
 

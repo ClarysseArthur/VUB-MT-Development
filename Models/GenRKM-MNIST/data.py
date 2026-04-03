@@ -41,7 +41,8 @@ def get_mnist_dataloader(args, path_to_data='mnist'):
         batch_size=args.mb_size,
         shuffle=False,
         pin_memory=False,
-        num_workers=0
+        num_workers=0,
+        drop_last=True
     )
 
     sample, _ = train_data[0]

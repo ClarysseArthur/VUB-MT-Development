@@ -203,3 +203,10 @@ def compute_mig(C: np.ndarray, Z: np.ndarray, num_bins: int = 20) -> dict:
       Z = discrete generative factors, shape (N, K)
     """
     return scalable_mig_score(gen_factors=Z, latents=C, num_bins=num_bins)
+
+def report_mig(mig_result: dict, title: str = "MIG"):
+    print(f"{title} score: {mig_result['MIG']:.4f}")
+    print("Per-factor MIG:", mig_result["per_factor"])
+    print("Factor entropies:", mig_result["factor_entropy"])
+    print("Valid factors:", mig_result["valid_factors"])
+    print("Active latent dimensions:", mig_result["active_latents"])

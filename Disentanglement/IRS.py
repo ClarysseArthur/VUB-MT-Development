@@ -107,3 +107,9 @@ def compute_irs(C: np.ndarray, Z: np.ndarray, diff_quantile: float = 0.99):
         return {"IRS": 0.0, "IRS_matrix": np.zeros((0, Z.shape[1]))}
 
     return scalable_irs_score(Z, C_active, diff_quantile=diff_quantile)
+
+def report_irs(irs_result: dict, title: str = "IRS"):
+    print(f"{title} score: {irs_result['IRS']:.4f}")
+    print("Per-latent disentanglement scores:", irs_result["disentanglement_scores"])
+    print("Per-latent parents:", irs_result["parents"])
+    print("Max deviations per latent:", irs_result["max_deviations"])

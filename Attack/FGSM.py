@@ -140,3 +140,108 @@ class FGSM_2V:
             adv_images = torch.clamp(adv_images, 0, 1)
 
         return adv_images.detach(), signed_grad.detach()
+        
+
+class FGSM_3V:
+    def __init__(self, net_in1, net_in2, net_in3, net_out1, net_out2, net_out3, kPCA, partial_kPCA, opt):
+        self.net_in1 = net_in1
+        self.net_in2 = net_in2
+        self.net_in3 = net_in3
+        self.net_out1 = net_out1
+        self.net_out2 = net_out2
+        self.net_out3 = net_out3
+        self.kPCA = kPCA
+        self.partial_kPCA = partial_kPCA
+        self.opt = opt
+
+    def run_model_batch(self, img_batch, sketch_batch, label_batch):
+        x_en = self.net_in1(img_batch)
+        y_en = self.net_in2(sketch_batch)
+        z_en = self.net_in3(label_batch)
+
+        h, _ = self.kPCA(x_en, y_en, z_en)
+        U = torch.mm(x_en.t(), h)
+        V = torch.mm(y_en.t(), h)
+        W = torch.mm(z_en.t(), h)
+
+        x_tilde = self.net_out1(torch.mm(h, U.t()))
+        y_tilde = self.net_out2(torch.mm(h, V.t()))
+        z_tilde = self.net_out3(torch.mm(h, W.t()))
+        return x_tilde, y_tilde, z_tilde
+
+    def run_model_batch_noimview(self, sketch_batch, label_batch):
+        # x_en = self.net_in1(image_batch)
+        y_en = self.net_in2(sketch_batch)
+        z_en = self.net_in3(label_batch)
+
+        h, _ = self.partial_kPCA([y_en, z_en]) # Image view not used for the latent representation
+
+        U = torch.mm(h, h)
+        V = torch.mm(y_en.t(), h)
+        W = torch.mm(z_en.t(), h)
+
+        x_tilde = self.net_out1(torch.mm(h, U.t()))
+        y_tilde = self.net_out2(torch.mm(h, V.t()))
+        z_tilde = self.net_out3(torch.mm(h, W.t()))
+
+        return x_tilde, y_tilde, z_tilde
+
+    def create_adversarial_batch(self, in_images, in_sketch, in_labels, epsilon=0.1):
+        self.net_in1.zero_grad()
+        self.net_in2.zero_grad()
+        self.net_in3.zero_grad()
+        self.net_out1.zero_grad()
+        self.net_out2.zero_grad()
+        self.net_out3.zero_grad()
+
+        adv_images = in_images.clone().detach().to(self.opt.device)
+        adv_images.requires_grad_(True)
+        in_labels = in_labels.to(self.opt.device)
+        in_sketch = in_sketch.to(self.opt.device)
+
+        out_images, _, _ = self.run_model_batch(adv_images, in_sketch, in_labels)
+
+        loss = torch.nn.functional.mse_loss(out_images, in_images)
+        loss.backward()
+
+        signed_grad = adv_images.grad.sign()
+        adv_images = adv_images + epsilon * signed_grad
+        adv_images = torch.clamp(adv_images, 0, 1)
+
+        return adv_images.detach(), signed_grad.detach()
+
+    def create_adversarial_batch_bim(self, in_images, in_sketch, in_labels, epsilon=0.1, alpha=0.01, num_iterations=10):
+        adv_images = in_images.clone().detach().to(self.opt.device)
+        in_labels = in_labels.clone().detach().to(self.opt.device)
+        in_sketch = in_sketch.clone().detach().to(self.opt.device)
+
+        image_plus = in_images + epsilon
+        image_minus = in_images - epsilon
+
+        for _ in range(num_iterations):
+            self.net_in1.zero_grad()
+            self.net_in2.zero_grad()
+            self.net_in3.zero_grad()
+            self.net_out1.zero_grad()
+            self.net_out2.zero_grad()
+            self.net_out3.zero_grad()
+
+            adv_images = adv_images.clone().detach()
+            adv_images.requires_grad_(True)
+
+            out_images, _, _ = self.run_model_batch(adv_images, in_sketch, in_labels)
+
+            loss = torch.nn.functional.mse_loss(out_images, in_images)
+            loss.backward()
+
+            signed_grad = adv_images.grad.sign()
+
+            # Iterative FGSM step
+            image_prime = adv_images + alpha * signed_grad
+
+            # Clip to epsilon-ball around original image, then to valid image range
+            adv_images = torch.max(image_minus, image_prime)
+            adv_images = torch.min(image_plus, adv_images)
+            adv_images = torch.clamp(adv_images, 0, 1)
+
+        return adv_images.detach(), signed_grad.detach()
