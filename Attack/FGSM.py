@@ -51,7 +51,7 @@ class FGSM:
         y = in2.to(self.opt.device) if in2 is not None else None
         z = in3.to(self.opt.device) if in3 is not None else None
 
-        out_x, _, _ = self.run_model_batch(x_adv, y, z)                   # 1. Forward clean image batch through the model
+        out_x, _, _ = self.run_model_batch(x_adv, y, z)             # 1. Forward clean image batch through the model
 
         loss = torch.nn.functional.mse_loss(out_x, in1)             # 2. Compute reconstruction loss between output and original input
         loss.backward()                                             # 3. Backpropagate to compute gradients w.r.t. input images
@@ -90,26 +90,3 @@ class FGSM:
             adv_x = torch.clamp(adv_x, 0, 1)
 
         return adv_x.detach(), signed_grad.detach()
-
-    def create_adversarial_batch_lbfgs(self, in1, in2=None, in3=None, epsilon=0.1, num_steps=50):
-        adv_x = in1.clone().detach().to(self.opt.device)
-        adv_x.requires_grad_(True)
-        y = in2.to(self.opt.device) if in2 is not None else None
-        z = in3.to(self.opt.device) if in3 is not None else None
-
-        optimizer = torch.optim.LBFGS([adv_x], max_iter=num_steps)
-
-        def closure():
-            optimizer.zero_grad()
-            out_x, _, _ = self.run_model_batch(adv_x, y, z)
-            loss = -torch.nn.functional.mse_loss(out_x, in1)
-            loss.backward()
-            return loss
-
-        optimizer.step(closure)
-
-        # Ensure the adversarial images are within the epsilon-ball and valid pixel range
-        adv_x = torch.clamp(adv_x, in1 - epsilon, in1 + epsilon)
-        adv_x = torch.clamp(adv_x, 0, 1)
-
-        return adv_x.detach(), None
