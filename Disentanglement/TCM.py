@@ -1,0 +1,49 @@
+import numpy as np
+import sklearn as sk
+import scipy as sp
+
+from disentanglement_utils import _discretize_latents, _calculate_mutual_information_matrix
+
+# Based on paper:
+#  > Sepliarskaia, Anna, Julia Kiseleva, and Maarten de Rijke. 2021. “How to Not Measure Disentanglement.” arXiv:1910.05587. Preprint, arXiv, March 24. https://doi.org/10.48550/arXiv.1910.05587.
+
+def compute_tcm(gen_factors, lat_codes):                                            # -   Number coresponding to 3CharM calculataions in literture review 1
+    gen_factors = np.asarray(gen_factors)
+    lat_codes = np.asarray(lat_codes, dtype=float)
+
+    lat_codes_disc = _discretize_latents(lat_codes, num_bins=50)                    # 0.  Discritize continuous latent codes into bins
+
+    mi_matrix = _calculate_mutual_information_matrix(gen_factors, lat_codes_disc)   # 1.  Compute I
+
+    z = np.max(mi_matrix, axis=0)                                                   # 2.  For each factor, find the max MI across latent dimensions
+    _, K = gen_factors.shape
+    _, L = lat_codes_disc.shape
+    D = np.zeros(L, dtype=float)
+
+    for i in range(L):
+        j_i = np.argmax(mi_matrix[i, :])                                            # 3.a max() of eq. 3.1 in literautre review (without the \neq)
+        if K > 1:
+            D[i] = mi_matrix[i, j_i] - np.max(np.delete(mi_matrix[i, :], j_i))      # 3.b D_i of eq. 3.1
+        else:
+            D[i] = mi_matrix[i, j_i]                                                # 3.b D_i of eq. 3.1 (if K==1)      
+
+    k_vec = np.full(K, -1, dtype=int)
+
+    for j in range(K):
+        I_j = np.where(np.argmax(mi_matrix, axis=1) == j)[0]                        # 4.  Finding disentangled factors for each generative factor j (eq. 3.2)
+        if len(I_j) > 0:
+            k_vec[j] = I_j[np.argmax(D[I_j])]
+
+    D_zj = np.zeros(K, dtype=float)
+
+    for j in range(K):
+        if k_vec[j] != -1:                                                          # 5.a When at least one latent dimension captures generative factor j
+            D_zj[j] = D[k_vec[j]]                                                   
+
+        else:
+            D_zj[j] = 0.0                                                           # 5.b Else: 0
+
+    denom = np.sum([sp.stats.entropy(np.bincount(gen_factors[:, j].astype(int))) for j in range(K)])
+    score = np.sum(D_zj) / denom if denom > 0 else 0.0                              # 6.  Final score
+
+    return score

@@ -74,6 +74,38 @@ def mmcelebahq_final_compute(args, net1, net2, net3, kPCA, device=torch.device('
     h, s = kPCA(xtr, ytr, ztr)
     return torch.mm(torch.t(xtr), h), torch.mm(torch.t(ytr), h), torch.mm(torch.t(ztr), h), h, s
 
+def mmcelebahq_final_compute_1V(args, net1, kPCA, device=torch.device('cuda')):
+    """ Function to compute embeddings of full dataset. """
+    args.shuffle = False
+    xt, _, _, _= get_mmcelebahq_dataloader(args=args)  # loading data without shuffle
+
+    xtr = net1(torch.stack(xt.dataset.images)[:args.N, :, :, :].to(args.device))
+
+    h, s = kPCA(xtr)
+    return torch.mm(torch.t(xtr), h), h, s
+
+def mmcelebahq_final_compute_2V_IS(args, net1, net2, kPCA, device=torch.device('cuda')):
+    """ Function to compute embeddings of full dataset. """
+    args.shuffle = False
+    xt, _, _, _= get_mmcelebahq_dataloader(args=args)  # loading data without shuffle
+
+    xtr = net1(torch.stack(xt.dataset.images)[:args.N, :, :, :].to(args.device))
+    ytr = net2(torch.stack(xt.dataset.sketches)[:args.N, :, :, :].to(args.device))
+
+    h, s = kPCA(xtr, ytr)
+    return torch.mm(torch.t(xtr), h), torch.mm(torch.t(ytr), h), h, s
+
+def mmcelebahq_final_compute_2V_IL(args, net1, net3, kPCA, device=torch.device('cuda')):
+    """ Function to compute embeddings of full dataset. """
+    args.shuffle = False
+    xt, _, _, _= get_mmcelebahq_dataloader(args=args)  # loading data without shuffle
+
+    xtr = net1(torch.stack(xt.dataset.images)[:args.N, :, :, :].to(args.device))
+    ztr = net3(torch.stack(xt.dataset.labels)[:args.N, :].to(args.device))
+
+    h, s = kPCA(xtr, ztr)
+    return torch.mm(torch.t(xtr), h), torch.mm(torch.t(ztr), h), h, s
+
 
 def get_classes():
     return ('_o_Clock_Shadow','Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bald','Bangs','Big_Lips','Big_Nose','Black_Hair','Blond_Hair','Blurry','Brown_Hair','Bushy_Eyebrows','Chubby','Double_Chin','Eyeglasses','Goatee','Gray_Hair','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes','No_Beard','Oval_Face','Pale_Skin','Pointy_Nose','Receding_Hairline','Rosy_Cheeks','Sideburns','Smiling ','Straight_Hair','Wavy_Hair','Wearing_Earrings','Wearing_Hat','Wearing_Lipstick','Wearing_Necklace','Wearing_Necktie','Young')
