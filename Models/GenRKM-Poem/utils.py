@@ -10,17 +10,6 @@ import time
 import os
 import shutil
 
-# Hyper-parameters =================
-N = 500  # Samples
-mb_size = 100  # Mini-batch size
-capacity = 32
-x_fdim1 = 64
-y_fdim = 100
-learning_rate = 1e-4  # for optimizer
-max_epochs = 5000
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 class create_dirs:
     """ Creates directories for Checkpoints and saving trained models """
 
@@ -49,118 +38,117 @@ def convert_to_imshow_format(image):
 
 # Feature-maps - network architecture
 class NetTextEn(nn.Module):
-    def __init__(self, vocab=200_000, d=32, hidden1=256, hidden2=256):
+    def __init__(self, vocab=200_000, d=64, hidden1=512, hidden2=256, pad_idx=None, opt=None):
         super().__init__()
-        self.emb = nn.Embedding(vocab, d)
-        self.fc1 = nn.Linear(15*d, hidden1)
+        assert opt is not None, "opt must be provided"
+
+        self.d = d
+        self.emb = nn.Embedding(vocab, d, padding_idx=pad_idx)
+        self.fc1 = nn.Linear(15 * d, hidden1)
+        self.bn1 = nn.BatchNorm1d(hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
-        self.fc3 = nn.Linear(hidden2, x_fdim1)
+        self.bn2 = nn.BatchNorm1d(hidden2)
+        self.fc3 = nn.Linear(hidden2, opt.x_fdim)
+        self.drop = nn.Dropout(0.1)
 
     def forward(self, x):
         x = x.long()
-        e = self.emb(x)              # (B,15,d)
-        e = e.reshape(x.size(0), -1) # (B,15*d)
-        # e = e.double()
-        e = F.leaky_relu(self.fc1(e), 0.2)
-        e = F.leaky_relu(self.fc2(e), 0.2)
+        e = self.emb(x).reshape(x.size(0), -1)
+        e = self.drop(F.leaky_relu(self.bn1(self.fc1(e)), 0.2))
+        e = self.drop(F.leaky_relu(self.bn2(self.fc2(e)), 0.2))
         return self.fc3(e)
 
 
 class NetSentEn(nn.Module):
-    """
-    Input:  (B, 4) one-hot float/int
-    Output: (B, y_fdim)
-    """
-    def __init__(self):
+    def __init__(self, hidden1=32, hidden2=64, opt=None):
         super().__init__()
-        self.fc1 = nn.Linear(4, 16)
-        self.fc2 = nn.Linear(16, 32)
+        assert opt is not None, "opt must be provided"
+
+        self.fc1 = nn.Linear(4, hidden1)
+        self.fc2 = nn.Linear(hidden1, hidden2)
+        self.fc3 = nn.Linear(hidden2, opt.y_fdim)
 
     def forward(self, x):
-        if x.dim() == 1:  # (4,)
+        if x.dim() == 1:
             x = x.unsqueeze(0)
-        if x.size(-1) != 4:
-            raise ValueError(f"NetSentEn expected last dim=4, got {tuple(x.shape)}")
-
-        # x = x.float()
+        x = x.float()
         x = F.leaky_relu(self.fc1(x), 0.2)
-        x = self.fc2(x)
-        return x
+        x = F.leaky_relu(self.fc2(x), 0.2)
+        return self.fc3(x)
+
 
 class NetLenEn(nn.Module):
-    """
-    Input:  (B, 15) one-hot float/int
-    Output: (B, y_fdim)
-    """
-    def __init__(self):
+    def __init__(self, hidden1=64, hidden2=64, opt=None):
         super().__init__()
-        self.fc1 = nn.Linear(15, 32)
-        self.fc2 = nn.Linear(32, 64)
+        assert opt is not None, "opt must be provided"
+
+        self.fc1 = nn.Linear(15, hidden1)
+        self.fc2 = nn.Linear(hidden1, hidden2)
+        self.fc3 = nn.Linear(hidden2, opt.z_fdim)
 
     def forward(self, x):
-        if x.dim() == 1:  # (15,)
+        if x.dim() == 1:
             x = x.unsqueeze(0)
-        if x.size(-1) != 15:
-            raise ValueError(f"NetLentEn expected last dim=15, got {tuple(x.shape)}")
-
-        # x = x.float()
+        x = x.float()
         x = F.leaky_relu(self.fc1(x), 0.2)
-        x = self.fc2(x)
-        return x
+        x = F.leaky_relu(self.fc2(x), 0.2)
+        return self.fc3(x)
 
 
 class NetTextDe(nn.Module):
-    def __init__(self, emb_layer, d=32, hidden1=256, hidden2=256):
+    def __init__(self, emb_layer, hidden1=256, hidden2=512, opt=None):
         super().__init__()
-        self.fc1 = nn.Linear(x_fdim1, hidden1)
+        assert opt is not None, "opt must be provided"
+
+        self.emb = emb_layer
+        self.d = emb_layer.embedding_dim
+
+        self.fc1 = nn.Linear(opt.x_fdim, hidden1)
+        self.bn1 = nn.BatchNorm1d(hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
-        self.fc3 = nn.Linear(hidden2, 15*d)
-        self.emb = emb_layer  # tie weights
-        self.d = d
+        self.bn2 = nn.BatchNorm1d(hidden2)
+        self.fc3 = nn.Linear(hidden2, 15 * self.d)
+        self.drop = nn.Dropout(0.1)
 
     def forward(self, z):
-        # z = z.float()
-        z = F.leaky_relu(self.fc1(z), 0.2)
-        z = F.leaky_relu(self.fc2(z), 0.2)
-        out = self.fc3(z).view(-1, 15, self.d)   # (B,15,d)
-        logits = out @ self.emb.weight.T         # (B,15,V)
-        return logits
+        if z.dim() == 1:
+            z = z.unsqueeze(0)
+        z = self.drop(F.leaky_relu(self.bn1(self.fc1(z)), 0.2))
+        z = self.drop(F.leaky_relu(self.bn2(self.fc2(z)), 0.2))
+        out = self.fc3(z).view(-1, 15, self.d)
+        logits = out @ self.emb.weight.T
+        return logits, out
 
 
 class NetSentDe(nn.Module):
-    """
-    Input:  (B, y_fdim)
-    Output: (B, 4) logits
-    """
-    def __init__(self):
+    def __init__(self, hidden1=64, hidden2=32, opt=None):
         super().__init__()
-        self.fc1 = nn.Linear(32, 16)
-        self.fc2 = nn.Linear(16, 4)
+        assert opt is not None, "opt must be provided"
+
+        self.fc1 = nn.Linear(opt.y_fdim, hidden1)
+        self.fc2 = nn.Linear(hidden1, hidden2)
+        self.fc3 = nn.Linear(hidden2, 4)
 
     def forward(self, z):
         if z.dim() == 1:
             z = z.unsqueeze(0)
-
-        # z = z.double()
         z = F.leaky_relu(self.fc1(z), 0.2)
-        logits = self.fc2(z)       # (B, 4)
-        return logits              # use softmax + CE, or BCEWithLogitsLoss if multi-label
+        z = F.leaky_relu(self.fc2(z), 0.2)
+        return self.fc3(z)
+
 
 class NetLenDe(nn.Module):
-    """
-    Input:  (B, y_fdim)
-    Output: (B, 15) logits
-    """
-    def __init__(self):
+    def __init__(self, hidden1=64, hidden2=64, opt=None):
         super().__init__()
-        self.fc1 = nn.Linear(64, 32)
-        self.fc2 = nn.Linear(32, 15)
+        assert opt is not None, "opt must be provided"
+
+        self.fc1 = nn.Linear(opt.z_fdim, hidden1)
+        self.fc2 = nn.Linear(hidden1, hidden2)
+        self.fc3 = nn.Linear(hidden2, 15)
 
     def forward(self, z):
         if z.dim() == 1:
             z = z.unsqueeze(0)
-
-        # z = z.double()
         z = F.leaky_relu(self.fc1(z), 0.2)
-        logits = self.fc2(z)       # (B, 15)
-        return logits              # use softmax + CE, or BCEWithLogitsLoss if multi-label
+        z = F.leaky_relu(self.fc2(z), 0.2)
+        return self.fc3(z)
