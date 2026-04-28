@@ -2,7 +2,7 @@ import torch
 
 
 class WB_Attack:
-    def __init__(self, net_in1, net_out1, recon_loss1, net_in2=None, net_out2=None, recon_loss2=None, net_in3=None, net_out3=None, recon_loss3=None, U=None, V=None, W=None, kPCA=None, vta=[True, True], opt=None):
+    def __init__(self, net_in1, net_out1, net_in2=None, net_out2=None, net_in3=None, net_out3=None, U=None, V=None, W=None, kPCA=None, vta=[True, True], opt=None):
         self.net_in1 = net_in1
         self.net_in2 = net_in2
         self.net_in3 = net_in3
@@ -24,10 +24,6 @@ class WB_Attack:
         self.net_out1.zero_grad()
         self.net_out2.zero_grad() if self.net_out2 is not None else None
         self.net_out3.zero_grad() if self.net_out3 is not None else None
-
-        self.recon_loss1 = recon_loss1
-        self.recon_loss2 = recon_loss2
-        self.recon_loss3 = recon_loss3
 
     def _kPCA(self, x_en, y_en=None, z_en=None):
         if y_en is not None and z_en is not None:
@@ -79,19 +75,31 @@ class WB_Attack:
         out_x, out_y, out_z = self.run_model_batch(x, y, z)             # 1. Forward clean image batch through the model
         
         if in3 is not None and in2 is not None:
-            loss = self.recon_loss1(out_x, in1) + self.recon_loss2(out_y, in2) + self.recon_loss3(out_z, in3) # 2. Compute the loss between the model's output and the true data (e.g., MSE loss for regression tasks)
+            recon_loss1 = torch.nn.MSELoss()
+            recon_loss2 = torch.nn.MSELoss()
+            recon_loss3 = torch.nn.BCEWithLogitsLoss()
+
+            loss = recon_loss1(out_x, in1) + recon_loss2(out_y, in2) + recon_loss3(out_z, in3) # 2. Compute the loss between the model's output and the true data (e.g., MSE loss for regression tasks)
             loss.backward()                                                 # 3. Backpropagate to compute gradients w.r.t. input images
         
         elif in3 is not None:
-            loss = self.recon_loss1(out_x, in1) + self.recon_loss3(out_z, in3)
+            recon_loss1 = torch.nn.MSELoss()
+            recon_loss3 = torch.nn.BCEWithLogitsLoss()
+
+            loss = recon_loss1(out_x, in1) + recon_loss3(out_z, in3)
             loss.backward()
 
         elif in2 is not None:
-            loss = self.recon_loss1(out_x, in1) + self.recon_loss2(out_y, in2)
+            recon_loss1 = torch.nn.MSELoss()
+            recon_loss2 = torch.nn.MSELoss()
+
+            loss = recon_loss1(out_x, in1) + recon_loss2(out_y, in2)
             loss.backward()
 
         else:
-            loss = self.recon_loss1(out_x, in1)
+            recon_loss1 = torch.nn.MSELoss()
+
+            loss = recon_loss1(out_x, in1)
             loss.backward()
 
         
