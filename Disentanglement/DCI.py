@@ -7,24 +7,21 @@ from sklearn.metrics import r2_score, accuracy_score
 from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from scipy.stats import entropy
+from sklearn.metrics import mean_squared_error
 
-# BAsed on paper:
+# Based on paper:
 #  > Eastwood, Cian, Andrei Liviu Nicolicioiu, Julius von Kügelgen, et al. 2023. “DCI-ES: An Extended Disentanglement Framework with Connections to Identifiability.” arXiv:2210.00364. Preprint, arXiv, February 16. https://doi.org/10.48550/arXiv.2210.00364.
 
 EPS = 1e-12
 
-def _normalize_importances(col: np.ndarray) -> np.ndarray:
-    col = np.maximum(col, 0.0)
-    s = col.sum()
-    if s < EPS:
-        return np.ones_like(col) / len(col)
-    return col / s
-
 def _normalize_importances(imp, eps=1e-12):
     imp = np.asarray(imp, dtype=float)
+    imp = np.maximum(imp, 0.0)
     s = imp.sum()
+
     if s <= eps:
-        return np.zeros_like(imp)                               #! CHANGED
+        return np.ones_like(imp) / len(imp)
+
     return imp / s
 
 def compute_dci(C, Z, factor_types, probe="lasso"):
@@ -35,7 +32,7 @@ def compute_dci(C, Z, factor_types, probe="lasso"):
     K = Z.shape[1]
 
     C_train, C_test, Z_train, Z_test = train_test_split(        # Split into train/test for the probes --> C = codes, Z = factors
-        C, Z, test_size=0.2
+        C, Z, test_size=0.2, random_state=0
     )
 
     R = np.zeros((L, K), dtype=float)                           # R[i,j] = importance of code i for predicting factor j
@@ -56,7 +53,7 @@ def compute_dci(C, Z, factor_types, probe="lasso"):
 
                 model.fit(C_train, z_tr.astype(float))          # Fit training data to Lasso model
                 pred = model.predict(C_test)                    # Predict on test data
-                Ij = 1.0 - mean_squared_error(z_te.astype(float), pred)  #! CHANGED
+                Ij = r2_score(z_te.astype(float), pred)
                 coef = model.named_steps["lasso"].coef_         # Lasso coefficients => importance of each code for predicting the factor
                 imp = np.abs(coef)
 
@@ -89,7 +86,7 @@ def compute_dci(C, Z, factor_types, probe="lasso"):
 
                 model.fit(C_train, z_tr.astype(float))          # Fit the model to the training data
                 pred = model.predict(C_test)                    # Predict on the test data
-                Ij = 1.0 - mean_squared_error(z_te.astype(float), pred)  #! CHANGED
+                Ij = r2_score(z_te.astype(float), pred)
                 imp = model.feature_importances_                # Random Forest feature importances => importance of each code for predicting the factor
 
             elif ftype == "discrete":
