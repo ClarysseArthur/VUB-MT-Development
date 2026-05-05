@@ -2,7 +2,7 @@ import torch
 
 
 class WB_Attack:
-    def __init__(self, net_in1, net_out1, net_in2=None, net_out2=None, net_in3=None, net_out3=None, U=None, V=None, W=None, kPCA=None, vta=[True, True], opt=None):
+    def __init__(self, net_in1, net_out1, net_in2=None, net_out2=None, net_in3=None, net_out3=None, U=None, V=None, W=None, kPCA=None, vta=[True, False], opt=None):
         self.net_in1 = net_in1
         self.net_in2 = net_in2
         self.net_in3 = net_in3
@@ -113,8 +113,6 @@ class WB_Attack:
             return x.detach(), y.detach(), signed_grad_x.detach(), signed_grad_y.detach()
 
         elif self.vta[0]:
-            print(x)
-            print(x.grad)
             signed_grad = x.grad.sign()                                 # 4.a.
             x = x + epsilon * signed_grad                               #   b.
             x = torch.clamp(x, 0, 1)                                    #   c.
