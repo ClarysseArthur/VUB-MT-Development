@@ -157,9 +157,15 @@ class WB_Attack:
                 x = x.clone().detach()
                 x.requires_grad_(True)
 
+                y = in2.to(self.opt.device) if in2 is not None else None
+                z = in3.to(self.opt.device) if in3 is not None else None
+
             elif self.vta[1]:
                 y = y.clone().detach() if y is not None else None
                 y.requires_grad_(True) if y is not None else None
+
+                x = in1.to(self.opt.device)
+                z = in3.to(self.opt.device) if in3 is not None else None
 
             out_x, out_y, out_z = self.run_model_batch(x, y, z)
 
