@@ -1,1 +1,2 @@
 # VUB-MT-Development
+[![wakatime](https://wakatime.com/badge/user/23a8b374-828d-46e1-9eb2-83a5387619e9/project/20e51812-2167-4c5f-8604-a1ab015f5b02.svg)](https://wakatime.com/badge/user/23a8b374-828d-46e1-9eb2-83a5387619e9/project/20e51812-2167-4c5f-8604-a1ab015f5b02)
