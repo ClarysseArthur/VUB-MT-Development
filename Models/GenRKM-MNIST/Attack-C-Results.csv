@@ -1,0 +1,11 @@
+model,image_attack,sketch_attack,Clean_IM_Loss,ADV_IM_Loss,Clean_SK_Loss,FGSM_SK_Loss,Clean_LA_Loss,FGSM_LA_Loss
+1V,True,False,,0.008945206520677429,,,,
+1V,True,False,,0.00884879620099145,,,,
+1V,True,False,,0.009782373566164565,,,,
+1V,True,False,,0.010235220583133723,,,,
+1V,True,False,,0.008806600631215291,,,,
+1V,True,False,,0.00941167921507504,,,,
+1V,True,False,,0.009624320812414358,,,,
+1V,True,False,,0.010067230257255819,,,,
+1V,True,False,,0.009204657655429832,,,,
+1V,True,False,,0.009652509728842113,,,,
