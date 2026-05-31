@@ -5,7 +5,6 @@ import tiktoken
 enc = tiktoken.get_encoding("o200k_base")
 PAD = enc.eot_token
 
-
 class O200SemanticTokenAugmenter:
     def __init__(self, max_len=15, pad_token=PAD, n_min=1, n_max=3, seed=None):
         self.enc = tiktoken.get_encoding("o200k_base")
